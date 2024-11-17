@@ -1,52 +1,57 @@
 import streamlit as st
 import pandas as pd
+import plotly.express as px
 
-st.header("2024 AHI 507 Streamlit Example")
-st.subheader("We are going to go through a couple different examples of loading and visualization information into this dashboard")
+# Header and Subheader
+st.header("2024 AHI 507 Streamlit Dashboard")
+st.subheader("Exploring school learning modalities data from NCES for 2021")
 
-st.text("""In this streamlit dashboard, we are going to focus on some recently released school learning modalities data from the NCES, for the years of 2021.""")
+st.text("""
+This dashboard focuses on the recently released school learning modalities data 
+from the National Center for Education Statistics (NCES) for the academic year 2020-2021.
+""")
 
-# ## https://healthdata.gov/National/School-Learning-Modalities-2020-2021/a8v3-a3m3/about_data
-df = pd.read_csv("https://healthdata.gov/resource/a8v3-a3m3.csv?$limit=50000") ## first 1k 
-
-## data cleaning 
+# Load data
+df = pd.read_csv("https://healthdata.gov/resource/a8v3-a3m3.csv?$limit=50000")
 df['week_recoded'] = pd.to_datetime(df['week'])
 df['zip_code'] = df['zip_code'].astype(str)
 
-df['week'].value_counts()
-
-## box to show how many rows and columns of data we have: 
+# Summary metrics
+st.write("### Dataset Summary")
 col1, col2, col3 = st.columns(3)
-col1.metric("Columns", df.shape[1]) 
+col1.metric("Columns", df.shape[1])
 col2.metric("Rows", len(df))
-col3.metric("Number of unique districts/schools:", df['district_name'].nunique())
+col3.metric("Unique Districts/Schools", df['district_name'].nunique())
 
-## exposing first 1k of NCES 20-21 data
+# Display raw data
+st.write("### Raw Data")
 st.dataframe(df)
 
+# Pivot table for weekly learning modality trends
+table = pd.pivot_table(df, values='student_count', index=['week'], 
+                       columns=['learning_modality'], aggfunc="sum").reset_index()
 
+# Bar charts for each learning modality
+st.write("### Weekly Trends for Each Learning Modality")
+st.bar_chart(data=table.set_index("week")[["Hybrid"]])
+st.bar_chart(data=table.set_index("week")[["In Person"]])
+st.bar_chart(data=table.set_index("week")[["Remote"]])
 
-table = pd.pivot_table(df, values='student_count', index=['week'],
-                       columns=['learning_modality'], aggfunc="sum")
+# Line chart for trends across all modalities
+st.write("### Trends Across All Learning Modalities")
+st.line_chart(data=table.set_index("week")[["Hybrid", "In Person", "Remote"]])
 
-table = table.reset_index()
-table.columns
+# Histogram for student count distribution
+st.write("### Distribution of Student Counts by Learning Modality")
+fig_hist = px.histogram(df, x="student_count", color="learning_modality", nbins=10,
+                        title="Distribution of Student Counts Across Modalities")
+st.plotly_chart(fig_hist)
 
-## line chart by week 
-st.bar_chart(
-    table,
-    x="week",
-    y="Hybrid",
-)
+# Interactive filter by district
+st.write("### Filter Data by District")
+districts = df['district_name'].unique()
+selected_district = st.selectbox("Select a District", districts)
+filtered_data = df[df['district_name'] == selected_district]
 
-st.bar_chart(
-    table,
-    x="week",
-    y="In Person",
-)
-
-st.bar_chart(
-    table,
-    x="week",
-    y="Remote",
-)
+st.write(f"Data for District: {selected_district}")
+st.write(filtered_data[['week', 'learning_modality', 'student_count']])
